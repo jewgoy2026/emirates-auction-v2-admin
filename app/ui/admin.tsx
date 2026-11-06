@@ -9,7 +9,7 @@ import { Badge, Empty, Field, Icon, Metric, Modal, Section, Table, url, useAdmin
 const menu = [
   ['', 'Visão geral', 'grid'], ['leiloes', 'Leilões e produtos', 'hammer'], ['novo', 'Cadastrar produto', 'plus'],
   ['categorias', 'Categorias', 'category'], ['vencedores', 'Vencedores e pop-ups', 'bell'], ['usuarios', 'Usuários', 'users'],
-  ['financeiro', 'Financeiro', 'wallet'], ['historico', 'Histórico e auditoria', 'clock'],
+  ['financeiro', 'Financeiro', 'wallet'], ['telemetria', 'Telemetria', 'grid'], ['historico', 'Histórico e auditoria', 'clock'],
 ];
 const actionNames: Record<string, string> = { publish: 'Publicar', pause: 'Suspender', resume: 'Reabrir', extend: 'Prorrogar', end: 'Encerrar para decisão', reset: 'Resetar / editar nova rodada', archive: 'Arquivar' };
 
@@ -34,7 +34,7 @@ export default function Admin() {
       {menu.map(([href, title, icon]) => <Link href={url(`painel${href ? `/${href}` : ''}`)} key={href} className={page === href || (page === 'editar' && href === 'leiloes') ? 'active' : ''}><Icon name={icon}/>{title}</Link>)}
     </nav></aside>
     <div className="lab-workspace-content">
-      {page === 'leiloes' ? <Lots/> : page === 'novo' || page === 'editar' ? <LotEditor lot={dashboard.lots.find((lot) => lot.id === path[2])} editing={page === 'editar'}/> : page === 'categorias' ? <Categories/> : page === 'vencedores' ? <Winners/> : page === 'usuarios' ? <Users/> : page === 'financeiro' ? <Finance/> : page === 'historico' ? <History/> : <Overview/>}
+      {page === 'leiloes' ? <Lots/> : page === 'novo' || page === 'editar' ? <LotEditor lot={dashboard.lots.find((lot) => lot.id === path[2])} editing={page === 'editar'}/> : page === 'categorias' ? <Categories/> : page === 'vencedores' ? <Winners/> : page === 'usuarios' ? <Users/> : page === 'financeiro' ? <Finance/> : page === 'telemetria' ? <Telemetry/> : page === 'historico' ? <History/> : <Overview/>}
     </div>
   </div>;
 }
@@ -121,6 +121,24 @@ function Invoices() {
 function Finance() {
   const { dashboard, run, busy } = useAdmin(); const data = dashboard!; const [review, setReview] = useState<{ id: string; approve: boolean } | null>(null);
   return <><Section title="Financeiro" eyebrow="AED, CRIPTO, SALDOS E SAQUES"/><div className="lab-metrics"><Metric label="Saldo de usuários" value={money(data.users.reduce((sum, user) => sum + user.wallet.balance, 0))}/><Metric label="Reservado" value={money(data.users.reduce((sum, user) => sum + user.wallet.reserved, 0))}/><Metric label="Pagamentos confirmados" value={data.payments.filter((item) => item.status === 'confirmed').length}/></div><h2>Saques</h2>{data.withdrawals.length ? <Table headers={['Usuário / data', 'Rede e ativo', 'Valor AED', 'Situação', '']}>{data.withdrawals.map((item) => <tr key={item.id}><td><strong>{data.users.find((user) => user.id === item.userId)?.name}</strong><small>{date(item.createdAt)}</small></td><td>{item.asset} · {item.network}<small>{item.destination.slice(0, 24)}…</small></td><td>{money(item.amount)}</td><td><Badge value={item.status}/></td><td>{item.status === 'requested' && <div className="lab-row-actions"><button className="lab-outline-button small" onClick={() => setReview({ id: item.id, approve: true })}>Aprovar</button><button className="lab-text-button" onClick={() => setReview({ id: item.id, approve: false })}>Recusar</button></div>}</td></tr>)}</Table> : <Empty>Nenhum saque solicitado.</Empty>}<h2>Faturas</h2>{data.invoices.length ? <Invoices/> : <Empty>Nenhuma fatura.</Empty>}<h2>Pagamentos cripto</h2>{data.payments.length ? <Table headers={['Data / usuário', 'Finalidade', 'Conversão', 'Situação']}>{data.payments.map((item) => <tr key={item.id}><td>{date(item.createdAt)}<small>{data.users.find((user) => user.id === item.userId)?.name}</small></td><td>{item.purpose}</td><td>{money(item.fiatAmount)}<small>{item.cryptoAmount} {item.asset} · {item.network}</small></td><td><Badge value={item.status}/></td></tr>)}</Table> : <Empty>Nenhum pagamento iniciado.</Empty>}{review && <Modal title={review.approve ? 'Aprovar saque' : 'Recusar saque'} onClose={() => setReview(null)}><form onSubmit={async (event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const result = await run(`/v1/payment/admin/withdrawals/${review.id}/review`, { method: 'POST', body: { approve: review.approve, reason: String(form.get('reason')) } }, 'Revisão de saque registrada.'); if (result) setReview(null); }}><Field label="Motivo"><textarea name="reason" required minLength={5} maxLength={500}/></Field><button className="lab-button full" disabled={busy}>Confirmar</button></form></Modal>}</>;
+}
+
+function Telemetry() {
+  const { dashboard } = useAdmin(); const data = dashboard!;
+  const registered = data.users.filter((user) => user.role === 'bidder').length;
+  const generated = data.payments.length, confirmed = data.payments.filter((item) => item.status === 'confirmed').length;
+  const bidFunded = data.payments.filter((item) => item.fundingReason === 'BID_COLLATERAL').length;
+  const paidInvoices = data.invoices.filter((item) => item.status === 'paid').length;
+  const pendingNotifications = data.notifications.filter((item) => item.status === 'pending' || item.status === 'sending').length;
+  const failedNotifications = data.notifications.filter((item) => item.status === 'dead').length;
+  const ratio = (value: number, base: number) => base ? `${(value / base * 100).toFixed(1)}%` : '—';
+  return <><Section title="Telemetria operacional" eyebrow="CADASTRO → SALDO → LANCE → ARREMATE"/>
+    <div className="lab-metrics"><Metric label="Clientes cadastrados" value={registered}/><Metric label="Cobranças geradas" value={generated} detail={`${bidFunded} para caução de lance`}/><Metric label="Pagamentos confirmados" value={confirmed} detail={ratio(confirmed, generated)}/><Metric label="Lances registrados" value={data.bids.length}/><Metric label="Faturas pagas" value={paidInvoices}/><Metric label="Alertas pendentes" value={pendingNotifications} detail={failedNotifications ? `${failedNotifications} encerrados com falha` : 'Discord operacional'}/></div>
+    <div className="lab-panel"><h2>Funil</h2>{[
+      ['Cadastros', registered, 'Contas de clientes'], ['Cobranças geradas', generated, ratio(generated, registered)], ['Pagamentos confirmados', confirmed, ratio(confirmed, generated)], ['Lances', data.bids.length, ratio(data.bids.length, Math.max(registered, 1))], ['Vencedores selecionados', data.invoices.length, ratio(data.invoices.length, Math.max(data.bids.length, 1))], ['Faturas pagas', paidInvoices, ratio(paidInvoices, data.invoices.length)],
+    ].map(([name, value, detail]) => <div className="lab-status-row" key={String(name)}><span>{name}</span><div><span style={{ width: `${Math.min(100, Number(value) / Math.max(1, registered, generated, data.bids.length) * 100)}%` }}/></div><strong>{value}</strong><small>{detail}</small></div>)}</div>
+    <h2>Cobranças recentes</h2>{data.payments.length ? <Table headers={['Data / usuário', 'Contexto', 'Referência AED', 'Ativo', 'Situação']}>{data.payments.slice(0, 100).map((item) => <tr key={item.id}><td>{date(item.createdAt)}<small>{data.users.find((user) => user.id === item.userId)?.name ?? item.userId}</small></td><td>{item.fundingReason === 'BID_COLLATERAL' ? 'Caução para lance' : item.fundingReason === 'INVOICE' ? 'Arremate' : 'Saldo geral'}<small>{item.lotId ? data.lots.find((lot) => lot.id === item.lotId)?.title ?? item.lotId : item.purpose}</small></td><td>{money(item.fiatAmount)}{item.requiredCollateral > 0 && <small>Caução calculada {money(item.requiredCollateral)}</small>}</td><td>{item.asset} · {item.network}<small>{item.cryptoAmount || 'Cotação pendente'}</small></td><td><Badge value={item.status}/></td></tr>)}</Table> : <Empty>Nenhuma cobrança gerada.</Empty>}
+    <h2>Entrega dos alertas</h2>{data.notifications.length ? <Table headers={['Data', 'Evento', 'Referência', 'Situação', 'Tentativas']}>{data.notifications.slice(0, 100).map((item) => <tr key={item.id}><td>{date(item.createdAt)}</td><td><code>{item.eventKey}</code></td><td><code>{item.target.slice(0, 26)}</code></td><td><Badge value={item.status}/>{item.lastError && <small>{item.lastError}</small>}</td><td>{item.attempts}</td></tr>)}</Table> : <Empty>Nenhum alerta operacional registrado.</Empty>}</>;
 }
 
 function History() {

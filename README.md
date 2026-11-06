@@ -11,6 +11,7 @@ Separate Next.js 16 administration repository for the Emirates Auction V2 platfo
 - Fixed 48-hour payment deadline after adjudication.
 - Manual default workflow: cancel purchase, forfeit the security deposit, apply the 30% penalty, optionally calculate AED 105 per applicable late day, prepare the lot as a new draft round and flag legal review.
 - Review and approve or reject crypto withdrawal requests.
+- Operational telemetry funnel for registration, payment intent, bid funding, confirmed settlement, bids and adjudication, including Discord outbox delivery status.
 
 ## Local preview
 
