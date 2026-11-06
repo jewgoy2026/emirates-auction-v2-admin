@@ -63,7 +63,7 @@ async function proxy(request: Request, env: Env) {
     } else if (!['GET', 'HEAD'].includes(request.method)) body = request.body;
     const response = await fetch(upstreamUrl, { method: request.method, headers, body, redirect: 'manual', signal: AbortSignal.timeout(15_000) });
     const outputHeaders = new Headers();
-    for (const name of ['content-type', 'content-length', 'location', 'retry-after']) { const value = response.headers.get(name); if (value) outputHeaders.set(name, value); }
+    for (const name of ['content-type', 'content-length', 'content-disposition', 'location', 'retry-after']) { const value = response.headers.get(name); if (value) outputHeaders.set(name, value); }
     outputHeaders.set('Cache-Control', 'no-store');
     outputHeaders.set('X-Content-Type-Options', 'nosniff');
     const cookieHeaders = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.() ?? (response.headers.get('set-cookie') ? [response.headers.get('set-cookie')!] : []);
