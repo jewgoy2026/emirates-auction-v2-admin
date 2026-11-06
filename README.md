@@ -23,4 +23,4 @@ npx wrangler dev --port 3011 \
   --var UPSTREAM_ORIGIN:https://emiratesauction.jessicalopesboitamartins.workers.dev
 ```
 
-`API_BASE_URL` must be HTTPS outside localhost. `INTERNAL_API_TOKEN` and `ADMIN_API_TOKEN` are stored only as Cloudflare Worker secrets and must match the VPS API. The allowlisted `gestao` identity authenticates against the Emirates users database; `operacoes` remains delegated to the existing Urso administrative session endpoint. Passwords are never placed in this repository or browser bundle.
+`API_BASE_URL` must be HTTPS outside localhost. `INTERNAL_API_TOKEN` is stored only as a Cloudflare Worker secret and must match the VPS API. The allowlisted `gestao` and `operacoes` identities authenticate directly against the Emirates users database. Passwords are never placed in this repository or browser bundle.
