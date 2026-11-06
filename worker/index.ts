@@ -33,7 +33,7 @@ async function proxy(request: Request, env: Env) {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method) && request.headers.get('origin') !== requestUrl.origin) return json('Origem inválida.', 403);
 
   let upstreamUrl = new URL(requestUrl.pathname.slice('/api'.length) + requestUrl.search, base);
-  let body: BodyInit | null | undefined = ['GET', 'HEAD'].includes(request.method) ? undefined : request.body;
+  let body: BodyInit | null | undefined;
   const headers = new Headers();
   for (const name of ['accept', 'content-type', 'cookie', 'user-agent']) { const value = request.headers.get(name); if (value) headers.set(name, value); }
   headers.set('x-internal-api-token', env.INTERNAL_API_TOKEN);
@@ -46,18 +46,21 @@ async function proxy(request: Request, env: Env) {
       const credentials = await request.clone().json() as { identifier?: unknown; password?: unknown };
       const username = typeof credentials.identifier === 'string' ? credentials.identifier.trim().toLowerCase() : '';
       if (!staffUsernames.has(username) || typeof credentials.password !== 'string' || !credentials.password) return json('Usuário ou senha inválidos.', 401);
-      const authBase = validBase(env.LEGACY_ADMIN_AUTH_URL);
-      if (!authBase || authBase.protocol !== 'https:') return json('O serviço de autenticação administrativa não está configurado.', 503);
-      const authUrl = new URL('/api/session', authBase);
-      const authResponse = await fetch(authUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json' }, body: JSON.stringify({ username, password: credentials.password }), redirect: 'manual', signal: AbortSignal.timeout(10_000) });
-      const authResult = await authResponse.json().catch(() => null) as { user?: unknown } | null;
-      if (!authResponse.ok || !authResult?.user) return json('Usuário ou senha inválidos.', 401);
-      upstreamUrl = new URL('/v1/auth/staff-session', base);
-      body = JSON.stringify({ username });
+      body = JSON.stringify(credentials);
       headers.set('content-type', 'application/json');
-      headers.set('x-admin-api-token', env.ADMIN_API_TOKEN);
-      headers.delete('cookie');
-    }
+      if (username === 'operacoes') {
+        const authBase = validBase(env.LEGACY_ADMIN_AUTH_URL);
+        if (!authBase || authBase.protocol !== 'https:') return json('O serviço de autenticação administrativa não está configurado.', 503);
+        const authUrl = new URL('/api/session', authBase);
+        const authResponse = await fetch(authUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json' }, body: JSON.stringify({ username, password: credentials.password }), redirect: 'manual', signal: AbortSignal.timeout(10_000) });
+        const authResult = await authResponse.json().catch(() => null) as { user?: unknown } | null;
+        if (!authResponse.ok || !authResult?.user) return json('Usuário ou senha inválidos.', 401);
+        upstreamUrl = new URL('/v1/auth/staff-session', base);
+        body = JSON.stringify({ username });
+        headers.set('x-admin-api-token', env.ADMIN_API_TOKEN);
+        headers.delete('cookie');
+      }
+    } else if (!['GET', 'HEAD'].includes(request.method)) body = request.body;
     const response = await fetch(upstreamUrl, { method: request.method, headers, body, redirect: 'manual', signal: AbortSignal.timeout(15_000) });
     const outputHeaders = new Headers();
     for (const name of ['content-type', 'content-length', 'location', 'retry-after']) { const value = response.headers.get(name); if (value) outputHeaders.set(name, value); }
