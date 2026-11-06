@@ -19,7 +19,7 @@ npm ci
 npm run build
 npx wrangler dev --port 3011 \
   --var API_BASE_URL:http://127.0.0.1:18800 \
-  --var UPSTREAM_ORIGIN:https://auction-admin-v2.workers.dev
+  --var UPSTREAM_ORIGIN:https://emiratesauction.jessicalopesboitamartins.workers.dev
 ```
 
-`API_BASE_URL` must be HTTPS outside localhost. No provider secret or private key is placed in this repository or browser bundle.
+`API_BASE_URL` must be HTTPS outside localhost. `INTERNAL_API_TOKEN` and `ADMIN_API_TOKEN` are stored only as Cloudflare Worker secrets and must match the VPS API. Staff login is delegated to the existing Urso administrative session endpoint for the allowlisted `gestao` and `operacoes` identities, so passwords are never copied into this repository or the browser bundle.

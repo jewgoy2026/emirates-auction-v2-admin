@@ -28,7 +28,7 @@ export default function Shell() {
 
   const refresh = useCallback(async () => {
     try {
-      const session = await api<{ user: { id: string; email: string; name: string; phone: string; role: 'admin' | 'bidder' } }>('/v1/auth/me');
+      const session = await api<{ user: { id: string; username: string | null; email: string; name: string; phone: string; role: 'admin' | 'bidder' } }>('/v1/auth/me');
       const current: User = { ...session.user, phone: session.user.phone ?? '', status: 'active', createdAt: 0, wallet: { balance: 0, reserved: 0, available: 0 } };
       setUser(current);
       if (current.role === 'admin') setDashboard(normalizeDashboard(await api('/v1/auction/admin/dashboard')));
@@ -68,7 +68,7 @@ export default function Shell() {
     const form = new FormData(event.currentTarget);
     setBusy(true);
     try {
-      await api('/v1/auth/login', { method: 'POST', body: { email: String(form.get('email') ?? ''), password: String(form.get('password') ?? '') } });
+      await api('/v1/auth/login', { method: 'POST', body: { identifier: String(form.get('identifier') ?? ''), password: String(form.get('password') ?? '') } });
       await refresh();
       flash('Sessão administrativa iniciada.');
     } catch (error) {
@@ -95,7 +95,7 @@ export default function Shell() {
           <p>Catálogo, categorias, regras de caução, lances, vencedores, pagamentos, saques e auditoria.</p>
           <form className="lab-panel" style={{ maxWidth: 530, margin: '30px auto', textAlign: 'left' }} onSubmit={login}>
             <h2>Entrar</h2>
-            <Field label="E-mail"><input name="email" type="email" autoComplete="username" required/></Field>
+            <Field label="Usuário"><input name="identifier" autoComplete="username" required minLength={3}/></Field>
             <Field label="Senha"><input name="password" type="password" autoComplete="current-password" required/></Field>
             <button className="lab-button full" disabled={busy}>{busy ? 'Entrando…' : 'Acessar painel'}</button>
           </form>

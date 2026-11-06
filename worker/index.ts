@@ -1,4 +1,6 @@
-interface Env { ASSETS: Fetcher; API_BASE_URL?: string; UPSTREAM_ORIGIN?: string }
+interface Env { ASSETS: Fetcher; API_BASE_URL?: string; UPSTREAM_ORIGIN?: string; INTERNAL_API_TOKEN?: string; ADMIN_API_TOKEN?: string; LEGACY_ADMIN_AUTH_URL?: string }
+
+const staffUsernames = new Set(['gestao', 'operacoes']);
 
 const securityHeaders: Record<string, string> = {
   'X-Frame-Options': 'DENY',
@@ -25,18 +27,38 @@ function validBase(value: string | undefined) {
 async function proxy(request: Request, env: Env) {
   const requestUrl = new URL(request.url), base = validBase(env.API_BASE_URL);
   if (!base) return json('API_BASE_URL não está configurada com um endpoint HTTPS válido.', 503);
+  if (!env.INTERNAL_API_TOKEN || env.INTERNAL_API_TOKEN.length < 48) return json('O gateway administrativo não está configurado.', 503);
+  if (!env.ADMIN_API_TOKEN || env.ADMIN_API_TOKEN.length < 48) return json('A autenticação administrativa não está configurada.', 503);
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(request.method)) return json('Método não permitido.', 405);
   if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method) && request.headers.get('origin') !== requestUrl.origin) return json('Origem inválida.', 403);
 
-  const upstreamUrl = new URL(requestUrl.pathname.slice('/api'.length) + requestUrl.search, base);
+  let upstreamUrl = new URL(requestUrl.pathname.slice('/api'.length) + requestUrl.search, base);
+  let body: BodyInit | null | undefined = ['GET', 'HEAD'].includes(request.method) ? undefined : request.body;
   const headers = new Headers();
   for (const name of ['accept', 'content-type', 'cookie', 'user-agent']) { const value = request.headers.get(name); if (value) headers.set(name, value); }
+  headers.set('x-internal-api-token', env.INTERNAL_API_TOKEN);
   headers.set('origin', env.UPSTREAM_ORIGIN || requestUrl.origin);
   headers.set('x-forwarded-host', requestUrl.host);
   headers.set('x-forwarded-proto', requestUrl.protocol.slice(0, -1));
 
   try {
-    const response = await fetch(upstreamUrl, { method: request.method, headers, body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body, redirect: 'manual', signal: AbortSignal.timeout(15_000) });
+    if (request.method === 'POST' && requestUrl.pathname === '/api/v1/auth/login') {
+      const credentials = await request.clone().json() as { identifier?: unknown; password?: unknown };
+      const username = typeof credentials.identifier === 'string' ? credentials.identifier.trim().toLowerCase() : '';
+      if (!staffUsernames.has(username) || typeof credentials.password !== 'string' || !credentials.password) return json('Usuário ou senha inválidos.', 401);
+      const authBase = validBase(env.LEGACY_ADMIN_AUTH_URL);
+      if (!authBase || authBase.protocol !== 'https:') return json('O serviço de autenticação administrativa não está configurado.', 503);
+      const authUrl = new URL('/api/session', authBase);
+      const authResponse = await fetch(authUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'accept': 'application/json' }, body: JSON.stringify({ username, password: credentials.password }), redirect: 'manual', signal: AbortSignal.timeout(10_000) });
+      const authResult = await authResponse.json().catch(() => null) as { user?: unknown } | null;
+      if (!authResponse.ok || !authResult?.user) return json('Usuário ou senha inválidos.', 401);
+      upstreamUrl = new URL('/v1/auth/staff-session', base);
+      body = JSON.stringify({ username });
+      headers.set('content-type', 'application/json');
+      headers.set('x-admin-api-token', env.ADMIN_API_TOKEN);
+      headers.delete('cookie');
+    }
+    const response = await fetch(upstreamUrl, { method: request.method, headers, body, redirect: 'manual', signal: AbortSignal.timeout(15_000) });
     const outputHeaders = new Headers();
     for (const name of ['content-type', 'content-length', 'location', 'retry-after']) { const value = response.headers.get(name); if (value) outputHeaders.set(name, value); }
     outputHeaders.set('Cache-Control', 'no-store');
