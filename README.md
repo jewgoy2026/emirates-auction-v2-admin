@@ -1,24 +1,25 @@
-# Auction Admin Lab
+# Emirates Auction V2 — administration panel
 
-Repositório local separado do painel Next.js. Código de avaliação com identidade própria e dados fictícios, não um painel de produção.
+Separate Next.js 16 administration repository for the Emirates Auction V2 platform. The static Cloudflare Worker frontend uses the VPS API as its only source of auction, user, payment and audit data.
 
-## Estado
+## Available operations
 
-- Criação e edição de produtos/leilões, caução variável, calendário, ações administrativas, avisos, revisão de saques e auditoria.
-- Next.js com exportação estática; Worker preparado para demonstrações isoladas por navegador em Durable Objects SQLite, com expiração em 24 horas.
-- Adaptador opcional para a API local de `../emirates-auction-frontend`, usando cookie administrativo separado.
-- 13 testes de domínio passaram; build passou; Worker local iniciou sessão e retornou oito lotes e três perfis fictícios.
-- Validação integral da UI e do adaptador local pendente. CSS de reset adicionado após o último build.
-- Nenhum deploy ou push realizado. Servidor temporário encerrado. O usuário exige produção; esta demonstração não atende esse requisito.
+- Dashboard for lots, categories, users, bids, balances, invoices, crypto payments, withdrawals and immutable audit history.
+- Create and edit draft lots; publish, pause, extend, end, reopen, reset or archive a round.
+- Variable deposit percentage, minimum bidding-limit base, absolute minimum and checkout eligibility per lot.
+- Manual winner selection and private payment popup.
+- Fixed 48-hour payment deadline after adjudication.
+- Manual default workflow: cancel purchase, forfeit the security deposit, apply the 30% penalty, optionally calculate AED 105 per applicable late day, prepare the lot as a new draft round and flag legal review.
+- Review and approve or reject crypto withdrawal requests.
 
-## Execução local
+## Local preview
 
 ```sh
 npm ci
 npm run build
-npm run preview
+npx wrangler dev --port 3011 \
+  --var API_BASE_URL:http://127.0.0.1:18800 \
+  --var UPSTREAM_ORIGIN:https://auction-admin-v2.workers.dev
 ```
 
-Acesse `http://127.0.0.1:3011`. O modo padrão usa um catálogo isolado de teste. Para usar a API local, crie `.dev.vars` com `LOCAL_API_ORIGIN="http://127.0.0.1:3010"` e inicie o servidor do outro projeto. O proxy recusa esse modo fora de localhost.
-
-Não existem recebimento de pagamentos, carteiras, credenciais de produção, dados de clientes ou conexão com o serviço oficial. O acesso à demonstração não é autenticação administrativa de produção. `wrangler.jsonc` identifica a conta Jessica, mas não foi publicado.
+`API_BASE_URL` must be HTTPS outside localhost. No provider secret or private key is placed in this repository or browser bundle.
