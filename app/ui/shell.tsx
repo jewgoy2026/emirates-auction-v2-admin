@@ -47,7 +47,7 @@ export default function Shell() {
     return () => { clearInterval(poll); if (toastTimer.current) clearTimeout(toastTimer.current); };
   }, [refresh]);
 
-  const run = useCallback(async <T,>(endpoint: string, options: { method?: 'GET' | 'POST' | 'PUT'; body?: unknown } = {}, message = 'Alteração salva.') => {
+  const run = useCallback(async <T,>(endpoint: string, options: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: unknown } = {}, message = 'Alteração salva.') => {
     if (active.current) return null;
     active.current = true; setBusy(true);
     try {

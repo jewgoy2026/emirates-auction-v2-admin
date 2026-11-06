@@ -10,7 +10,7 @@ export type AdminState = {
   busy: boolean;
   path: string[];
   refresh: () => Promise<void>;
-  run: <T = any>(path: string, options?: { method?: 'GET' | 'POST' | 'PUT'; body?: unknown }, message?: string) => Promise<T | null>;
+  run: <T = any>(path: string, options?: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: unknown }, message?: string) => Promise<T | null>;
   flash: (message: string, error?: boolean) => void;
 };
 
