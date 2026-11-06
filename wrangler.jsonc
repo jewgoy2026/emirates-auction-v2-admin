@@ -1,0 +1,11 @@
+{
+  "$schema":"node_modules/wrangler/config-schema.json",
+  "name":"auction-admin-v2",
+  "account_id":"8c258db2c7f1b1c5b5d978249d1f9d47",
+  "main":"worker/index.ts",
+  "compatibility_date":"2026-11-05",
+  "compatibility_flags":["nodejs_compat"],
+  "workers_dev":true,
+  "assets":{"directory":"./out","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/api/*"]},
+  "observability":{"enabled":false}
+}

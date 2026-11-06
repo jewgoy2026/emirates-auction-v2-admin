@@ -1,0 +1,27 @@
+{
+  "name": "auction-admin-lab",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3011",
+    "build": "next build",
+    "preview": "wrangler dev --port 3011",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "tsx --test tests/*.test.ts",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "next": "16.4.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "tsx": "^4.20.6",
+    "typescript": "5.9.3",
+    "wrangler": "4.158.0",
+    "@cloudflare/workers-types": "latest"
+  }
+}
