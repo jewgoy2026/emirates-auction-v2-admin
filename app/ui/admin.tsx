@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { aedMinor, api, collateral, date, localDate, money, type Category, type Lot } from '../../lib/v2';
+import { aedMinor, api, collateral, date, localDate, money, type Category, type Lot, type User } from '../../lib/v2';
 import { Badge, Empty, Field, Icon, Metric, Modal, Section, Table, url, useAdmin } from './shared';
 
 const menu = [
@@ -143,14 +143,16 @@ function Winners() {
 }
 
 function Users() {
-  const { dashboard } = useAdmin(); const data = dashboard!;
-  return <><Section title="Usuários" eyebrow="CADASTROS, CONTATO E AUDITORIA"/><Table headers={['Usuário', 'Contato', 'Perfil', 'Saldo AED', 'Atividade / detalhes']}>
+  const { dashboard, run, busy } = useAdmin(); const data = dashboard!;
+  const [deleting, setDeleting] = useState<User | null>(null), [confirmation, setConfirmation] = useState('');
+  const close = () => { setDeleting(null); setConfirmation(''); };
+  return <><Section title="Usuários" eyebrow="CADASTROS, CONTATO E AUDITORIA"/><p className="lab-fine">Contas de teste podem ser excluídas por completo. Administradores, contas com saldo ou com movimentação financeira liquidada permanecem protegidos.</p><Table headers={['Usuário', 'Contato', 'Perfil', 'Saldo AED', 'Atividade / detalhes', 'Operação']}>
     {data.users.map((user) => {
       const payments = data.payments.filter((item) => item.userId === user.id), bids = data.bids.filter((item) => item.userId === user.id);
       const registration = data.audit.find((item) => item.action === 'USER_REGISTERED' && item.target === user.id);
-      return <tr key={user.id}><td><strong>{user.name}</strong><small>{user.email}</small><small>Cliente: {user.username ?? '—'}</small></td><td>{user.phone || '—'}<small>Cadastro {date(user.createdAt)}</small></td><td><Badge value={user.status}/><small>{user.role}</small></td><td>{money(user.wallet.balance)}<small>Disponível {money(user.wallet.available)} · reservado {money(user.wallet.reserved)}</small></td><td><strong>{bids.length} lances · {payments.length} cobranças</strong><details><summary>Ver ficha completa</summary><pre>{JSON.stringify({ userId: user.id, customerId: user.username, name: user.name, email: user.email, phone: user.phone, role: user.role, status: user.status, registeredAt: new Date(user.createdAt).toISOString(), wallet: user.wallet, bids: bids.length, payments: payments.length, registrationEvent: registration?.detail ?? null }, null, 2)}</pre></details></td></tr>;
+      return <tr key={user.id}><td><strong>{user.name}</strong><small>{user.email}</small><small>Cliente: {user.username ?? '—'}</small></td><td>{user.phone || '—'}<small>Cadastro {date(user.createdAt)}</small></td><td><Badge value={user.status}/><small>{user.role}</small></td><td>{money(user.wallet.balance)}<small>Disponível {money(user.wallet.available)} · reservado {money(user.wallet.reserved)}</small></td><td><strong>{bids.length} lances · {payments.length} cobranças</strong><details><summary>Ver ficha completa</summary><pre>{JSON.stringify({ userId: user.id, customerId: user.username, name: user.name, email: user.email, phone: user.phone, role: user.role, status: user.status, registeredAt: new Date(user.createdAt).toISOString(), wallet: user.wallet, bids: bids.length, payments: payments.length, registrationEvent: registration?.detail ?? null }, null, 2)}</pre></details></td><td>{user.role === 'bidder' ? <button type="button" className="lab-text-button" onClick={() => setDeleting(user)}>Excluir usuário</button> : <span className="lab-subtle">Protegido</span>}</td></tr>;
     })}
-  </Table></>;
+  </Table>{deleting && <Modal title="Excluir usuário e dados relacionados" onClose={close}><p><b>{deleting.name}</b><br/><span className="lab-subtle">{deleting.email} · {deleting.phone || 'sem telefone'}</span></p><p className="lab-note danger">Esta operação encerra as sessões e remove definitivamente a conta, lances, reservas, cobranças pendentes, pedidos, notificações e dados relacionados. Contas com saldo ou movimentação financeira liquidada serão bloqueadas pela API.</p><form onSubmit={async (event) => { event.preventDefault(); const result = await run(`/v1/auction/admin/users/${deleting.id}`, { method: 'DELETE' }, 'Usuário de teste e dados relacionados foram excluídos.'); if (result) close(); }}><Field label="Digite EXCLUIR para confirmar"><input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" autoFocus required/></Field><div className="lab-modal-actions"><button type="button" className="lab-outline-button" onClick={close}>Voltar</button><button type="submit" className="lab-danger-button" disabled={busy || confirmation.trim().toUpperCase() !== 'EXCLUIR'}>{busy ? 'Excluindo…' : 'Excluir definitivamente'}</button></div></form></Modal>}</>;
 }
 
 function Invoices() {
