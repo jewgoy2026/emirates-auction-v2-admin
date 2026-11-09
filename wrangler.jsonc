@@ -11,6 +11,6 @@
     "API_BASE_URL":"https://api-emirates.203-161-52-90.nip.io",
     "UPSTREAM_ORIGIN":"https://emiratesauction.jessicalopesboitamartins.workers.dev"
   },
-  "assets":{"directory":"./out","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/api/*"]},
+  "assets":{"directory":"./out","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":true},
   "observability":{"enabled":false}
 }

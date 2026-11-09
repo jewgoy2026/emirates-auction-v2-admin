@@ -67,6 +67,8 @@ export default {
     if (url.pathname.startsWith('/api/')) return proxy(request, env);
     const response = await env.ASSETS.fetch(request), headers = new Headers(response.headers);
     for (const [name, value] of Object.entries(securityHeaders)) headers.set(name, value);
+    if (response.headers.get('content-type')?.includes('text/html')) headers.set('Cache-Control', 'no-store');
+    else if (url.pathname.startsWith('/_next/static/')) headers.set('Cache-Control', 'public, max-age=31536000, immutable');
     return new Response(response.body, { status: response.status, headers });
   },
 } satisfies ExportedHandler<Env>;
