@@ -7,6 +7,7 @@
   "compatibility_flags":["nodejs_compat"],
   "workers_dev":true,
   "keep_vars":true,
+  "cache":{"enabled":false},
   "vars":{
     "API_BASE_URL":"https://api-emirates.203-161-52-90.nip.io",
     "UPSTREAM_ORIGIN":"https://emiratesauction.jessicalopesboitamartins.workers.dev"
