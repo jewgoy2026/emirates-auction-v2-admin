@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { aedMinor, api, collateral, date, localDate, money, type Category, type Lot, type OwnershipCertificate, type PaymentDestination, type User } from '../../lib/v2';
 import { Badge, Empty, Field, Icon, Metric, Modal, Section, Table, url, useAdmin } from './shared';
+import WhatsAppSupport from './whatsapp';
 
 const menu = [
   ['', 'Visão geral', 'grid'], ['leiloes', 'Leilões e produtos', 'hammer'], ['novo', 'Cadastrar produto', 'plus'],
@@ -42,9 +43,10 @@ export default function Admin() {
   return <div className="lab-workspace">
     <aside className="lab-sidebar"><div className="lab-sidebar-person"><span className="lab-eyebrow">ADMINISTRATION</span><h2>Controle do leilão</h2><small>{user.email}</small></div><nav aria-label="Painel administrativo">
       {menu.map(([href, title, icon]) => <Link href={url(`painel${href ? `/${href}` : ''}`)} key={href} className={page === href || (page === 'editar' && href === 'leiloes') ? 'active' : ''}><Icon name={icon}/>{title}</Link>)}
+      <div className="lab-sidebar-submenu"><span>SUPORTE</span><Link href={url('painel/atendimento')} className={page === 'atendimento' ? 'active' : ''}><Icon name="message"/>Atendimento WhatsApp</Link></div>
     </nav></aside>
     <div className="lab-workspace-content">
-      {page === 'leiloes' ? <Lots/> : page === 'novo' || page === 'editar' ? <LotEditor lot={dashboard.lots.find((lot) => lot.id === path[2])} editing={page === 'editar'}/> : page === 'categorias' ? <Categories/> : page === 'documentos' ? <Documents/> : page === 'vencedores' ? <Winners/> : page === 'usuarios' ? <Users/> : page==='pedidos-diretos'?<DirectOrders/>: page === 'financeiro' ? <Finance/> : page === 'telemetria' ? <Telemetry/> : page === 'historico' ? <History/> : <Overview/>}
+      {page === 'leiloes' ? <Lots/> : page === 'novo' || page === 'editar' ? <LotEditor lot={dashboard.lots.find((lot) => lot.id === path[2])} editing={page === 'editar'}/> : page === 'categorias' ? <Categories/> : page === 'documentos' ? <Documents/> : page === 'vencedores' ? <Winners/> : page === 'usuarios' ? <Users/> : page==='pedidos-diretos'?<DirectOrders/>: page === 'financeiro' ? <Finance/> : page === 'atendimento' ? <WhatsAppSupport/> : page === 'telemetria' ? <Telemetry/> : page === 'historico' ? <History/> : <Overview/>}
     </div>
   </div>;
 }

@@ -53,7 +53,7 @@ export function collateral(limit: number, depositBps: number, minimumLimit: numb
 export function localDate(value: number) { const date = new Date(value); return new Date(value - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); }
 export function date(value: number) { return Number.isFinite(value) ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'; }
 
-export async function api<T = any>(path: string, options: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: unknown; retry?: boolean } = {}): Promise<T> {
+export async function api<T = any>(path: string, options: { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; retry?: boolean } = {}): Promise<T> {
   const response = await fetch(`/api${path}`, { method: options.method ?? (options.body === undefined ? 'GET' : 'POST'), headers: options.body === undefined ? undefined : { 'Content-Type': 'application/json' }, body: options.body === undefined ? undefined : JSON.stringify(options.body), credentials: 'same-origin', cache: 'no-store' });
   if (response.status === 401 && options.retry !== false && (!path.includes('/auth/') || path === '/v1/auth/me')) { const refreshed = await fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' }); if (refreshed.ok) return api<T>(path, { ...options, retry: false }); }
   const data = response.status === 204 ? null : await response.json().catch(() => null);
