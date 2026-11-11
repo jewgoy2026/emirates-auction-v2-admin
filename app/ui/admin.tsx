@@ -10,7 +10,7 @@ import WhatsAppSupport from './whatsapp';
 const menu = [
   ['', 'Visão geral', 'grid'], ['leiloes', 'Leilões e produtos', 'hammer'], ['novo', 'Cadastrar produto', 'plus'],
   ['categorias', 'Categorias', 'category'], ['documentos', 'Geração de documentos', 'box'], ['vencedores', 'Vencedores e pop-ups', 'bell'], ['usuarios', 'Usuários', 'users'],
-  ['pedidos-diretos','Pedidos de compra direta','box'],['financeiro', 'Financeiro', 'wallet'], ['telemetria', 'Telemetria', 'grid'], ['historico', 'Histórico e auditoria', 'clock'],
+  ['pedidos-diretos','Pedidos de compra direta','box'],['financeiro', 'Financeiro', 'wallet'], ['dominio', 'Domínio e publicação', 'globe'], ['telemetria', 'Telemetria', 'grid'], ['historico', 'Histórico e auditoria', 'clock'],
 ];
 const actionNames: Record<string, string> = { publish: 'Publicar', pause: 'Suspender', resume: 'Reabrir', extend: 'Prorrogar', end: 'Encerrar para decisão', reset: 'Resetar / editar nova rodada', archive: 'Arquivar', 'enable-bids': 'Ativar recebimento de lances', 'disable-bids': 'Bloquear novos lances', delete: 'Excluir definitivamente' };
 const publicLotUrl = (lotId: string) => `https://official.emiratesauction.workers.dev/lots/${lotId}`;
@@ -46,7 +46,7 @@ export default function Admin() {
       <div className="lab-sidebar-submenu"><span>SUPORTE</span><Link href={url('painel/atendimento')} className={page === 'atendimento' ? 'active' : ''}><Icon name="message"/>Atendimento WhatsApp</Link></div>
     </nav></aside>
     <div className="lab-workspace-content">
-      {page === 'leiloes' ? <Lots/> : page === 'novo' || page === 'editar' ? <LotEditor lot={dashboard.lots.find((lot) => lot.id === path[2])} editing={page === 'editar'}/> : page === 'categorias' ? <Categories/> : page === 'documentos' ? <Documents/> : page === 'vencedores' ? <Winners/> : page === 'usuarios' ? <Users/> : page==='pedidos-diretos'?<DirectOrders/>: page === 'financeiro' ? <Finance/> : page === 'atendimento' ? <WhatsAppSupport/> : page === 'telemetria' ? <Telemetry/> : page === 'historico' ? <History/> : <Overview/>}
+      {page === 'leiloes' ? <Lots/> : page === 'novo' || page === 'editar' ? <LotEditor lot={dashboard.lots.find((lot) => lot.id === path[2])} editing={page === 'editar'}/> : page === 'categorias' ? <Categories/> : page === 'documentos' ? <Documents/> : page === 'vencedores' ? <Winners/> : page === 'usuarios' ? <Users/> : page==='pedidos-diretos'?<DirectOrders/>: page === 'financeiro' ? <Finance/> : page === 'dominio' ? <DomainPublishing/> : page === 'atendimento' ? <WhatsAppSupport/> : page === 'telemetria' ? <Telemetry/> : page === 'historico' ? <History/> : <Overview/>}
     </div>
   </div>;
 }
@@ -59,6 +59,85 @@ function Overview() {
     <div className="lab-two-column"><div className="lab-panel"><h2>Categorias com produtos</h2>{data.categories.slice().sort((a, b) => b.itemCount - a.itemCount).slice(0, 10).map((category) => <div className="lab-status-row" key={category.id}><span>{category.title}</span><div><span style={{ width: `${Math.min(100, category.itemCount / Math.max(1, data.lots.length) * 600)}%` }}/></div><strong>{category.itemCount}</strong></div>)}</div>
       <div className="lab-panel"><h2>Fluxo de encerramento</h2><div className="lab-action-guide"><span>01</span><div><strong>O cronômetro termina</strong><p>O lote para e aguarda a decisão administrativa.</p></div></div><div className="lab-action-guide"><span>02</span><div><strong>Prorrogar ou finalizar</strong><p>A equipe pode estender, reabrir, resetar ou selecionar o vencedor.</p></div></div><div className="lab-action-guide"><span>03</span><div><strong>Liberar pagamento</strong><p>O pop-up cobra em cripto o total em AED menos o depósito elegível.</p></div></div></div></div>
     <h2>Atividade recente</h2><AuditTable limit={8}/></>;
+}
+
+type DomainPublication = {
+  nativeUrl: string;
+  workerService: string;
+  integrationConfigured: boolean;
+  state: 'native' | 'integration_required' | 'pending_nameservers' | 'ready' | 'active';
+  hostname: string;
+  customUrl: string;
+  zoneName: string;
+  zoneStatus: string;
+  nameservers: string[];
+  enabled: boolean;
+  checkedAt: string | null;
+  lastError: string;
+};
+
+const domainStateLabel: Record<DomainPublication['state'], string> = {
+  native: 'Worker nativo',
+  integration_required: 'Integração pendente',
+  pending_nameservers: 'Aguardando nameservers',
+  ready: 'Pronto para ativar',
+  active: 'Domínio ativo',
+};
+
+function DomainPublishing() {
+  const { busy, run, flash } = useAdmin();
+  const [status, setStatus] = useState<DomainPublication | null>(null), [loading, setLoading] = useState(true), [hostname, setHostname] = useState(''), [zoneName, setZoneName] = useState('');
+  const load = async (quiet = false) => {
+    try {
+      const next = await api<DomainPublication>('/v1/auction/admin/domain');
+      setStatus(next); setHostname((value) => value || next.hostname); setZoneName((value) => value || next.zoneName);
+    } catch (error) { if (!quiet) flash((error as Error).message, true); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => {
+    void load();
+    const timer = setInterval(() => { if (!document.hidden) void load(true); }, 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const mutate = async (path: string, body: Record<string, unknown>, message: string) => {
+    const next = await run<DomainPublication>(path, { method: 'POST', body }, message);
+    if (next) { setStatus(next); setHostname(next.hostname); setZoneName(next.zoneName); }
+  };
+  const copy = async (value: string) => {
+    try { await navigator.clipboard.writeText(value); flash('Nameserver copiado.'); }
+    catch { flash('Não foi possível copiar automaticamente.', true); }
+  };
+  if (loading || !status) return <><Section title="Domínio e publicação" eyebrow="PUBLICAÇÃO · DNS · CLOUDFLARE"/><div className="lab-panel"><p>Carregando configuração de domínio…</p></div></>;
+  const pending = status.state === 'pending_nameservers', active = status.state === 'active';
+  return <><Section title="Domínio e publicação" eyebrow="PUBLICAÇÃO · DNS · CLOUDFLARE" actions={<span className={`lab-domain-state ${active ? 'active' : pending ? 'pending' : ''}`}><i/>{domainStateLabel[status.state]}</span>}/>
+    <div className="lab-domain-hero">
+      <div className="lab-domain-hero-icon"><Icon name="globe" size={26}/></div>
+      <div><span>ENDEREÇO PRINCIPAL DA PLATAFORMA</span><h2>{active ? status.hostname : new URL(status.nativeUrl).hostname}</h2><p>{active ? 'O domínio personalizado está vinculado ao Worker oficial.' : 'A plataforma continua publicada com segurança no endereço nativo da Cloudflare.'}</p></div>
+      <a className="lab-outline-button" href={active ? status.customUrl : status.nativeUrl} target="_blank" rel="noreferrer">Abrir site ↗</a>
+    </div>
+    <div className="lab-domain-grid">
+      <div className="lab-panel lab-domain-native">
+        <div className="lab-inline-head"><div><span className="lab-eyebrow">FALLBACK PERMANENTE</span><h2>Worker nativo</h2></div><span className="lab-domain-check"><Icon name="check" size={15}/> Sempre disponível</span></div>
+        <div className="lab-domain-address"><Icon name="globe"/><div><small>URL de contingência</small><strong>{status.nativeUrl}</strong></div></div>
+        <p className="lab-fine">Esse endereço não é removido ao ativar ou desativar um domínio personalizado. Se houver qualquer problema de DNS, ele continua funcionando.</p>
+      </div>
+      <div className="lab-panel lab-domain-custom">
+        <div className="lab-inline-head"><div><span className="lab-eyebrow">IDENTIDADE PERSONALIZADA</span><h2>Domínio próprio</h2></div>{status.hostname && <span className={`lab-badge ${active ? 'open' : 'pending'}`}>{active ? 'Ativo' : status.zoneStatus === 'active' ? 'DNS confirmado' : 'Pendente'}</span>}</div>
+        {!status.integrationConfigured && <div className="lab-error"><strong>Integração Cloudflare não configurada</strong><span>O Worker nativo segue ativo. Configure a credencial segura no servidor para liberar o gerenciamento de domínio.</span></div>}
+        <form onSubmit={(event) => { event.preventDefault(); void mutate('/v1/auction/admin/domain/prepare', { hostname, zoneName }, 'Domínio preparado. Agora configure os nameservers no registrador.'); }}>
+          <div className="lab-form-grid"><Field label="Domínio público" hint="Pode ser a raiz ou um subdomínio. Ex.: auction.example.com"><input value={hostname} onChange={(event) => setHostname(event.target.value)} placeholder="auction.example.com" autoCapitalize="none" autoCorrect="off" spellCheck={false} required disabled={active}/></Field><Field label="Zona raiz" hint="O domínio comprado no registrador. Ex.: example.com"><input value={zoneName} onChange={(event) => setZoneName(event.target.value)} placeholder="example.com" autoCapitalize="none" autoCorrect="off" spellCheck={false} required disabled={active}/></Field></div>
+          {!active && <button className="lab-button" disabled={busy || !status.integrationConfigured}>{status.hostname ? 'Atualizar preparação' : 'Preparar domínio'}</button>}
+        </form>
+      </div>
+    </div>
+    {status.hostname && <div className="lab-panel lab-domain-steps">
+      <div className="lab-inline-head"><div><span className="lab-eyebrow">ATIVAÇÃO GUIADA</span><h2>Conecte o domínio em 3 etapas</h2></div><span className="lab-fine">Última verificação: {status.checkedAt ? date(new Date(status.checkedAt).valueOf()) : 'ainda não realizada'}</span></div>
+      <div className="lab-domain-step"><span className="lab-domain-step-number">1</span><div><h3>Copie os nameservers atribuídos</h3><p>A Cloudflare gera os servidores DNS corretos. Não digite valores diferentes.</p>{status.nameservers.length ? <div className="lab-nameservers">{status.nameservers.map((item) => <button type="button" key={item} onClick={() => void copy(item)}><code>{item}</code><span><Icon name="copy" size={15}/> Copiar</span></button>)}</div> : <div className="lab-note">Os nameservers aparecerão depois que o domínio for preparado.</div>}</div></div>
+      <div className="lab-domain-step"><span className="lab-domain-step-number">2</span><div><h3>Troque no registrador e verifique</h3><p>Abra o local onde o domínio foi comprado, substitua os nameservers atuais pelos dois valores acima e aguarde a propagação.</p><div className="lab-domain-warning"><Icon name="check" size={17}/><span><strong>Antes de trocar:</strong> confira se os registros de e-mail e demais serviços importantes também existem na zona Cloudflare.</span></div><button className="lab-outline-button" disabled={busy || !status.integrationConfigured} onClick={() => void mutate('/v1/auction/admin/domain/verify', {}, status.zoneStatus === 'active' ? 'Delegação DNS confirmada.' : 'Verificação solicitada. A propagação DNS ainda pode levar algum tempo.')}>{busy ? 'Verificando…' : 'Verificar nameservers'}</button></div></div>
+      <div className="lab-domain-step"><span className="lab-domain-step-number">3</span><div><h3>{active ? 'Domínio personalizado ativo' : 'Ative a publicação'}</h3><p>{status.zoneStatus === 'active' ? 'A delegação foi confirmada. Agora o domínio pode apontar diretamente para o Worker oficial.' : 'O botão será liberado assim que a Cloudflare confirmar os nameservers.'}</p>{status.lastError && <div className="lab-error">{status.lastError}</div>}<div className="lab-wrap-actions">{!active ? <button className="lab-button" disabled={busy || status.zoneStatus !== 'active'} onClick={() => void mutate('/v1/auction/admin/domain/activate', {}, 'Domínio personalizado ativado com sucesso.')}>Ativar domínio</button> : <><a className="lab-button" href={status.customUrl} target="_blank" rel="noreferrer">Abrir domínio ↗</a><button className="lab-outline-button" disabled={busy} onClick={() => void mutate('/v1/auction/admin/domain/deactivate', {}, 'Domínio personalizado desativado. O Worker nativo continua disponível.')}>Desativar domínio</button></>}</div></div></div>
+    </div>}
+    <div className="lab-domain-footnote"><Icon name="check" size={18}/><div><strong>Operação protegida e auditada</strong><p>O token da Cloudflare permanece somente no servidor. Preparação, verificação, ativação e desativação ficam registradas no histórico administrativo.</p></div></div>
+  </>;
 }
 
 function Lots() {
