@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { Engine } from '../lib/engine.ts';
 import type { User, Invoice } from '../lib/model.ts';
+import { date, dubaiCalendarDate, dubaiDateTimeToIso, localDate } from '../lib/v2.ts';
+
+test('admin auction fields round-trip in Dubai time independently from the browser',()=>{
+  const instant=Date.parse('2026-11-05T12:00:00.000Z');
+  assert.equal(localDate(instant),'2026-11-05T16:00');
+  assert.equal(dubaiDateTimeToIso('2026-11-05T16:00'),'2026-11-05T12:00:00.000Z');
+  assert.equal(dubaiCalendarDate('2026-11-10T21:30:00.000Z'),'2026-11-11');
+  assert.match(date(instant),/16:00.*GST \(UTC\+4\)$/);
+  assert.throws(()=>dubaiDateTimeToIso('2026-02-30T10:00'),/válidas/);
+});
 
 function setup(){let clock=1_793_916_000_000;const db=new DatabaseSync(':memory:');const e=new Engine(db,()=>clock);e.seed();return {e,db,advance:(ms:number)=>clock+=ms,admin:e.one<User>("SELECT * FROM users WHERE id='admin'")!,ana:e.one<User>("SELECT * FROM users WHERE id='ana'")!,bruno:e.one<User>("SELECT * FROM users WHERE id='bruno'")!};}
 function fixture(e:Engine,admin:User,extra:Record<string,unknown>={}){const lot=e.create(admin,{title:'Lote de teste',category:'Veículos',description:'Somente demonstração',mode:'auction',startPrice:100_000,increment:10_000,extension:3,fee:0,vat:0,startsAt:e.now()-1000,endsAt:e.now()+120_000,...extra});e.lotAction(admin,lot.id,'publish','Publicação de teste');return e.lot(lot.id);}

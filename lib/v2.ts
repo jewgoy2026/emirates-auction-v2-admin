@@ -23,6 +23,9 @@ export type Dashboard = { users: User[]; categories: Category[]; lots: Lot[]; bi
 const number = (value: unknown) => Number(value ?? 0);
 const time = (value: unknown) => new Date(String(value ?? 0)).valueOf();
 const record = (value: unknown) => value && typeof value === 'object' ? value as Record<string, any> : {};
+export const AUCTION_TIME_ZONE = 'Asia/Dubai';
+const DUBAI_UTC_OFFSET = '+04:00';
+const dubaiDateTimeFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: AUCTION_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 export function normalizeDashboard(value: unknown): Dashboard {
   const source = record(value);
@@ -52,8 +55,22 @@ export function normalizeDashboard(value: unknown): Dashboard {
 export function money(minor: number) { return new Intl.NumberFormat('en-AE', { style: 'currency', currency: 'AED', maximumFractionDigits: 2 }).format(minor / 100); }
 export function aedMinor(value: FormDataEntryValue | string) { const text = String(value).trim().replace(',', '.'); if (!/^\d{1,10}(?:\.\d{1,2})?$/.test(text)) throw new Error('Informe um valor AED válido.'); const [whole, fraction = ''] = text.split('.'); return Number(whole) * 100 + Number(fraction.padEnd(2, '0')); }
 export function collateral(limit: number, depositBps: number, minimumLimit: number, minimumDeposit: number) { return Math.max(minimumDeposit, Math.ceil(Math.max(limit, minimumLimit) * depositBps / 10_000)); }
-export function localDate(value: number) { const date = new Date(value); return new Date(value - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); }
-export function date(value: number) { return Number.isFinite(value) ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'; }
+export function localDate(value: number) {
+  if (!Number.isFinite(value)) return '';
+  const parts = Object.fromEntries(dubaiDateTimeFormatter.formatToParts(new Date(value)).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+export function dubaiDateTimeToIso(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value.trim());
+  if (!match) throw new Error('Informe data e hora válidas no fuso de Dubai.');
+  const localValue = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}`;
+  const parsed = new Date(`${localValue}:${match[6] ?? '00'}${DUBAI_UTC_OFFSET}`);
+  if (!Number.isFinite(parsed.valueOf()) || localDate(parsed.valueOf()) !== localValue) throw new Error('Informe data e hora válidas no fuso de Dubai.');
+  return parsed.toISOString();
+}
+export function dubaiDate(value = Date.now()) { return localDate(value).slice(0, 10); }
+export function dubaiCalendarDate(value: string | number | Date) { const timestamp = value instanceof Date ? value.valueOf() : typeof value === 'number' ? value : new Date(value).valueOf(); return localDate(timestamp).slice(0, 10); }
+export function date(value: number) { return Number.isFinite(value) ? `${new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: AUCTION_TIME_ZONE })} · GST (UTC+4)` : '—'; }
 
 export async function api<T = any>(path: string, options: { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; retry?: boolean } = {}): Promise<T> {
   const response = await fetch(`/api${path}`, { method: options.method ?? (options.body === undefined ? 'GET' : 'POST'), headers: options.body === undefined ? undefined : { 'Content-Type': 'application/json' }, body: options.body === undefined ? undefined : JSON.stringify(options.body), credentials: 'same-origin', cache: 'no-store' });
