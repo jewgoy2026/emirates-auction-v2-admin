@@ -26,7 +26,7 @@ export function Badge({ value }: { value: string }) { return <span className={`l
 export function Empty({ children }: { children: ReactNode }) { return <div className="lab-empty"><Icon name="box" size={32}/><p>{children}</p></div>; }
 export function Section({ title, eyebrow, actions }: { title: string; eyebrow?: string; actions?: ReactNode }) { return <div className="lab-section-head"><div>{eyebrow && <span className="lab-eyebrow">{eyebrow}</span>}<h1>{title}</h1></div>{actions}</div>; }
 export function Metric({ label, value, detail }: { label: string; value: ReactNode; detail?: string }) { return <div className="lab-metric"><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</div>; }
-export function Table({ headers, children }: { headers: string[]; children: ReactNode }) { return <div className="lab-table-wrap"><table><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{children}</tbody></table></div>; }
+export function Table({ headers, children }: { headers: ReactNode[]; children: ReactNode }) { return <div className="lab-table-wrap"><table><thead><tr>{headers.map((header, index) => <th key={index}>{header}</th>)}</tr></thead><tbody>{children}</tbody></table></div>; }
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) { return <label className="lab-field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>; }
 
 export function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
